@@ -27,7 +27,7 @@
 
 ## Visão Geral
 
-O **FinCalc** é uma aplicação de linha de comando escrita em C puro que permite ao usuário registrar, editar, remover e listar despesas financeiras, além de gerar análises estatísticas sobre os gastos ao longo do tempo. As análises são baseadas em conceitos matemáticos discretos (integral, derivada e aproximação linear) aplicados sobre os dados históricos de despesas.
+O **FinCalc** é uma aplicação CLI escrita em C puro que permite ao usuário registrar, editar, remover e listar despesas financeiras, além de gerar análises estatísticas sobre os gastos ao longo do tempo. As análises são baseadas em conceitos matemáticos discretos (integral, derivada e aproximação linear) aplicados sobre os dados históricos de despesas.
 
 ---
 
@@ -39,13 +39,13 @@ O **FinCalc** é uma aplicação de linha de comando escrita em C puro que permi
 | Listar despesas | Exibe todas as despesas salvas |
 | Editar despesa | Atualiza campos individuais de uma despesa existente |
 | Remover despesa | Exclui uma despesa pelo ID |
-| Análise Geral | Exibe métricas consolidadas: total acumulado, média mensal, crescimento, mês sazonal, maior e menor mês de gasto, e previsão para o próximo mês |
+| Análise Geral | Exibe métricas consolidadas: total acumulado no mês, total acumulado geral, média mensal, crescimento, mês sazonal, maior e menor mês de gasto, e previsão para o próximo mês. Projeta despesas recorrentes no tempo de forma automática. |
 
 ---
 
 ## Arquitetura
 
-O projeto segue uma arquitetura em camadas, com separação clara de responsabilidades:
+O projeto segue uma arquitetura em camadas com repository pattern, com separação clara de responsabilidades:
 
 ```
 ┌─────────────────────────┐
@@ -192,15 +192,12 @@ Contém apenas headers com as definições de tipos compartilhados por toda a ap
 |---|---|
 | `calcular_analise_geral()` | Carrega todas as despesas e retorna `AnaliseDespesas` preenchido |
 
-**Funções internas (static):**
+**Funções internas (static) principais:**
 
 | Função | Responsabilidade |
 |---|---|
-| `obter_periodo_atual(mes, ano)` | Obtém mês e ano do sistema |
-| `obter_mes_anterior(...)` | Calcula o mês/ano imediatamente anterior |
-| `acumular_totais(...)` | Única passagem sobre os dados; preenche todos os buffers |
-| `calcular_extremos_mensais(...)` | Identifica o maior e menor mês de gasto |
-| `calcular_media_mensal(...)` | Divide o acumulado pelos meses com despesas |
+| `acumular_totais(...)` | Itera sobre os dados projetando dinamicamente as despesas recorrentes no tempo usando bibliotecas C nativas |
+| `calcular_extremos_mensais(...)` | Identifica o maior e menor mês de gasto com base nos períodos agregados |
 
 ---
 
@@ -233,6 +230,7 @@ Implementações matemáticas discretas usadas pela camada de análise.
 | `derivada_discreta(atual, anterior)` | f(x) − f(x−1) — variação entre períodos |
 | `aproximacao_linear_local(atual, deriv)` | f(x) + f′(x) — previsão para o próximo passo |
 | `analise_sazonalidade(totais, n)` | Retorna o índice (mês) com maior soma histórica |
+| `calcular_media_mensal(acumulado, totais)` | Divide o acumulado histórico pelo número de meses ativos |
 
 ---
 
@@ -254,7 +252,12 @@ Menus interativos em terminal. Leem a entrada do usuário e chamam as funções 
 | Função | Descrição |
 |---|---|
 | `limpar_buffer()` | Descarta caracteres restantes no `stdin` após leitura |
-| `validar_data(Data)` | Valida dia/mês/ano com suporte a anos bissextos e meses de 30 dias |
+| `validar_data(Data)` | Valida dia/mês/ano com suporte a anos bissextos e meses de 30/31 dias |
+| `ler_data(Data*)` | Lê e efetua o parse de data digitada pelo usuário via `stdin` |
+| `obter_limite_tempo_atual()` | Helper para obter a data de limite máximo atual usando `mktime` |
+| `converter_data_para_tempo()` | Converte structs `Data` customizadas em `time_t` da lib `<time.h>` |
+| `avancar_data_despesa(...)` | Avança o `struct tm` iterativamente com base na frequência da despesa |
+| `obter_nome_*()` | Converte enums (Categorias e Frequências) em Strings legíveis |
 
 ---
 
