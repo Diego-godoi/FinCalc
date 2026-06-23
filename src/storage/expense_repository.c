@@ -20,11 +20,11 @@ int gerar_id() {
     return max_id + 1;
 }
 
-int salvar_despesa(Despesa despesa) {
+int salvar_despesa(const Despesa *despesa) {
     FILE *file = fopen(FILE_PATH, "ab");
     if (!file) return 0;
     
-    int result = fwrite(&despesa, sizeof(Despesa), 1, file);
+    int result = fwrite(despesa, sizeof(Despesa), 1, file);
     fclose(file);
     return result > 0;
 }
@@ -79,7 +79,7 @@ int remover_despesa_por_id(int id) {
     return found;
 }
 
-int editar_despesa_por_id(int id, Despesa despesa_atualizada) {
+int editar_despesa_por_id(int id, const Despesa *despesa_atualizada) {
     FILE *file = fopen(FILE_PATH, "rb+");
     if (!file) return 0;
 
@@ -88,7 +88,7 @@ int editar_despesa_por_id(int id, Despesa despesa_atualizada) {
     while (fread(&desp, sizeof(Despesa), 1, file)) {
         if (desp.id == id) {
             fseek(file, -sizeof(Despesa), SEEK_CUR);
-            fwrite(&despesa_atualizada, sizeof(Despesa), 1, file);
+            fwrite(despesa_atualizada, sizeof(Despesa), 1, file);
             found = 1;
             break;
         }

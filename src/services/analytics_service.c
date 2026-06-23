@@ -4,109 +4,169 @@
 #include "analytics_service.h"
 #include "../storage/expense_repository.h"
 #include "../math/math_utils.h"
+#include "../utils/utils.h"
+
+#define MAX_PERIODOS 1000
+
+typedef struct {
+    int    ano;
+    int    mes;
+    double total;
+} PeriodoTotal;
+
+/* ==========================================================================
+ * FUNÇÕES AUXILIARES DE AGREGAÇÃO
+ * ========================================================================== */
+
+static void acumular_periodo(PeriodoTotal *periodos, int *num_periodos, int ano, int mes, double valor) {
+    for (int j = 0; j < *num_periodos; j++) {
+        if (periodos[j].ano == ano && periodos[j].mes == mes) {
+            periodos[j].total += valor;
+            return;
+        }
+    }
+    if (*num_periodos < MAX_PERIODOS) {
+        periodos[*num_periodos].ano   = ano;
+        periodos[*num_periodos].mes   = mes;
+        periodos[*num_periodos].total = valor;
+        (*num_periodos)++;
+    }
+}
+
+static void adicionar_valor_dinamico(double **todos_valores, int *idx, int *capacidade, double valor) {
+    if (*idx >= *capacidade) {
+        *capacidade *= 2;
+        *todos_valores = (double *)realloc(*todos_valores, (*capacidade) * sizeof(double));
+    }
+    (*todos_valores)[(*idx)++] = valor;
+}
+
+/* --------------------------------------------------------------------------
+ * acumular_totais
+ *   Itera sobre o vetor de despesas e preenche os totais projetando
+ *   ocorrências recorrentes usando mktime.
+ * -------------------------------------------------------------------------- */
+static void acumular_totais(const Despesa *despesas, int contagem,
+                            double **todos_valores, int *qtd_valores,
+                            double totais_mensais[12],
+                            PeriodoTotal *periodos, int *num_periodos,
+                            int mes_atual, int ano_atual,
+                            int mes_anterior, int ano_anterior,
+                            double *total_mes_atual,
+                            double *total_mes_anterior) {
+    int capacidade = contagem > 0 ? contagem : 10;
+    int idx_valores = 0;
+    time_t limite = obter_limite_tempo_atual();
+
+    for (int i = 0; i < contagem; i++) {
+        time_t t_desp = converter_data_para_tempo(despesas[i].data);
+        struct tm tm_desp = *localtime(&t_desp);
+
+        while (t_desp <= limite) {
+            adicionar_valor_dinamico(todos_valores, &idx_valores, &capacidade, despesas[i].valor);
+
+            int mes = tm_desp.tm_mon + 1;
+            int ano = tm_desp.tm_year + 1900;
+
+            if (mes >= 1 && mes <= 12) {
+                totais_mensais[mes - 1] += despesas[i].valor;
+            }
+
+            acumular_periodo(periodos, num_periodos, ano, mes, despesas[i].valor);
+
+            if (ano == ano_atual && mes == mes_atual) {
+                *total_mes_atual += despesas[i].valor;
+            } else if (ano == ano_anterior && mes == mes_anterior) {
+                *total_mes_anterior += despesas[i].valor;
+            }
+
+            if (!avancar_data_despesa(&tm_desp, &despesas[i])) {
+                break;
+            }
+            t_desp = mktime(&tm_desp);
+        }
+    }
+    *qtd_valores = idx_valores;
+}
+
+/* --------------------------------------------------------------------------
+ * calcular_extremos_mensais
+ *   Percorre os períodos agregados e identifica o mês com maior e menor
+ *   gasto total, preenchendo maior_gasto e menor_gasto em *analytics.
+ * -------------------------------------------------------------------------- */
+static void calcular_extremos_mensais(const PeriodoTotal *periodos,
+                                      int num_periodos,
+                                      AnaliseDespesas *analytics) {
+    double max_total = -1.0;
+    double min_total = -1.0;
+
+    for (int i = 0; i < num_periodos; i++) {
+        if (max_total < 0.0 || periodos[i].total > max_total) {
+            max_total = periodos[i].total;
+            analytics->maior_gasto.mes = periodos[i].mes;
+            analytics->maior_gasto.ano = periodos[i].ano;
+        }
+        if (min_total < 0.0 || periodos[i].total < min_total) {
+            min_total = periodos[i].total;
+            analytics->menor_gasto.mes = periodos[i].mes;
+            analytics->menor_gasto.ano = periodos[i].ano;
+        }
+    }
+}
+
 
 AnaliseDespesas calcular_analise_geral() {
     AnaliseDespesas analytics = {0};
+
     int contagem = 0;
     Despesa *despesas = listar_todas_despesas(&contagem);
-
     if (contagem == 0 || despesas == NULL) {
         return analytics;
     }
 
-    // Identificar o mês e ano atuais
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    int mes_atual = tm.tm_mon + 1;
-    int ano_atual = tm.tm_year + 1900;
-    
-    // Mês anterior para a diferença regressiva
-    int mes_anterior = mes_atual - 1;
-    int ano_anterior = ano_atual;
-    if (mes_anterior == 0) {
-        mes_anterior = 12;
-        ano_anterior -= 1;
-    }
+    int mes_atual, ano_atual;
+    obter_periodo_atual(&mes_atual, &ano_atual);
+
+    int mes_anterior, ano_anterior;
+    obter_mes_anterior(mes_atual, ano_atual, &mes_anterior, &ano_anterior);
 
     analytics.mes_referencia = mes_atual;
     analytics.ano_referencia = ano_atual;
 
-    double despesas_mes_atual = 0.0;
-    double despesas_mes_anterior = 0.0;
-
-    double *todos_valores = (double*)malloc(contagem * sizeof(double));
-    double totais_mensais[12] = {0};
-
-    typedef struct { int ano; int mes; double total; } AnoMesTotal;
-    AnoMesTotal totais_unicos[1000] = {0};
-    int num_unicos = 0;
-
-    for (int i = 0; i < contagem; i++) {
-        todos_valores[i] = despesas[i].valor;
-
-        // Agregar totais por mês para análise de sazonalidade geral
-        if (despesas[i].data.mes >= 1 && despesas[i].data.mes <= 12) {
-            totais_mensais[despesas[i].data.mes - 1] += despesas[i].valor;
-        }
-
-        // Agregar totais por (ano, mes) para maior e menor gasto do mes
-        int found = 0;
-        for (int j = 0; j < num_unicos; j++) {
-            if (totais_unicos[j].ano == despesas[i].data.ano && totais_unicos[j].mes == despesas[i].data.mes) {
-                totais_unicos[j].total += despesas[i].valor;
-                found = 1;
-                break;
-            }
-        }
-        if (!found && num_unicos < 1000) {
-            totais_unicos[num_unicos].ano = despesas[i].data.ano;
-            totais_unicos[num_unicos].mes = despesas[i].data.mes;
-            totais_unicos[num_unicos].total = despesas[i].valor;
-            num_unicos++;
-        }
-
-        // Classificar despesas do mês atual e anterior
-        if (despesas[i].data.ano == ano_atual && despesas[i].data.mes == mes_atual) {
-            despesas_mes_atual += despesas[i].valor;
-        } else if (despesas[i].data.ano == ano_anterior && despesas[i].data.mes == mes_anterior) {
-            despesas_mes_anterior += despesas[i].valor;
-        }
+    double *todos_valores = (double *)malloc((contagem > 0 ? contagem : 10) * sizeof(double));
+    if (!todos_valores) {
+        free(despesas);
+        return analytics;
     }
 
-    double max_total = -1;
-    double min_total = -1;
-    for (int j = 0; j < num_unicos; j++) {
-        if (max_total == -1 || totais_unicos[j].total > max_total) {
-            max_total = totais_unicos[j].total;
-            analytics.maior_gasto.mes = totais_unicos[j].mes;
-            analytics.maior_gasto.ano = totais_unicos[j].ano;
-        }
-        if (min_total == -1 || totais_unicos[j].total < min_total) {
-            min_total = totais_unicos[j].total;
-            analytics.menor_gasto.mes = totais_unicos[j].mes;
-            analytics.menor_gasto.ano = totais_unicos[j].ano;
-        }
-    }
+    double totais_mensais[12]          = {0};
+    PeriodoTotal periodos[MAX_PERIODOS] = {0};
+    int num_periodos                    = 0;
+    double total_mes_atual              = 0.0;
+    double total_mes_anterior           = 0.0;
+    int qtd_valores                     = 0;
 
-    // Integral discreta (Somatório)
-    analytics.despesa_acumulada = integral_discreta(todos_valores, contagem);
-    analytics.total_despesas = analytics.despesa_acumulada; // Mantém a compatibilidade, ou poderia ser despesas_mes_atual
+    /* Passa única sobre os dados */
+    acumular_totais(despesas, contagem,
+                    &todos_valores, &qtd_valores,
+                    totais_mensais,
+                    periodos, &num_periodos,
+                    mes_atual, ano_atual,
+                    mes_anterior, ano_anterior,
+                    &total_mes_atual, &total_mes_anterior);
 
-    // Média Mensal
-    int meses_ativos = 0;
-    for (int i = 0; i < 12; i++) {
-        if (totais_mensais[i] > 0) meses_ativos++;
-    }
-    analytics.media_mensal = meses_ativos > 0 ? analytics.despesa_acumulada / meses_ativos : 0;
+    /* Extremos (maior/menor mês) */
+    calcular_extremos_mensais(periodos, num_periodos, &analytics);
 
-    // Derivada discreta (Diferença Regressiva)
-    analytics.taxa_crescimento = derivada_discreta(despesas_mes_atual, despesas_mes_anterior);
-
-    // Aproximação linear local
-    analytics.previsao_tendencia = aproximacao_linear_local(despesas_mes_atual, analytics.taxa_crescimento);
-
-    // Sazonalidade
-    analytics.mes_sazonal = analise_sazonalidade(totais_mensais, 12);
+    /* Métricas matemáticas */
+    analytics.despesa_acumulada  = integral_discreta(todos_valores, qtd_valores); /* soma histórica total projetada */
+    analytics.total_despesas     = total_mes_atual;                            /* soma apenas do mês atual */
+    analytics.media_mensal       = calcular_media_mensal(analytics.despesa_acumulada,
+                                                         totais_mensais);
+    analytics.taxa_crescimento   = derivada_discreta(total_mes_atual, total_mes_anterior);
+    analytics.previsao_tendencia = aproximacao_linear_local(total_mes_atual,
+                                                            analytics.taxa_crescimento);
+    analytics.mes_sazonal        = analise_sazonalidade(totais_mensais, 12);
 
     free(todos_valores);
     free(despesas);

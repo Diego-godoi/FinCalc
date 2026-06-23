@@ -1,40 +1,35 @@
 #ifndef EXPENSE_H
 #define EXPENSE_H
 
-enum Categoria{
-    ALIMENTACAO,
-    CASA,
-    TRANSPORTE,
-    OUTROS
-};
-enum Frequencia{
-    NENHUMA,
-    DIARIA,
-    SEMANAL,
-    MENSAL,
-    ANUAL
-};
-typedef struct data{
+typedef enum {
+    ALIMENTACAO = 0,
+    CASA = 1,
+    TRANSPORTE = 2,
+    OUTROS = 3
+} Categoria;
+
+typedef enum {
+    NENHUMA = 0,
+    DIARIA = 1,
+    SEMANAL = 2,
+    MENSAL = 3,
+    ANUAL = 4
+} Frequencia;
+
+typedef struct data {
     int dia;
     int mes;
     int ano;
-}Data;
+} Data;
 
-typedef struct despesa{
-
+typedef struct despesa {
     int id;
-
     char titulo[100];
-    enum Categoria categoria;
-
+    Categoria categoria;
     double valor;
-
     Data data;
-
     int recorrente;
-
-    enum Frequencia frequencia;
-
+    Frequencia frequencia;
 } Despesa;
 
 #endif

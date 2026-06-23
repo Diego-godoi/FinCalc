@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "ui/menu.h"
 #include "utils/utils.h"
 
@@ -13,12 +14,12 @@ int main(){
         printf("2. Análises\n");
         printf("3. Sair\n");
         printf("Escolha uma opcao: ");
-        if (scanf("%d", &opcao) != 1) {
-            limpar_buffer();
+        char buffer[10];
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
             opcao = 0;
             continue;
         }
-        limpar_buffer();
+        opcao = atoi(buffer);
 
         switch (opcao) {
             case 1:

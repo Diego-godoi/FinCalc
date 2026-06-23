@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "../services/analytics_service.h"
 #include "menu.h"
 #include "../utils/utils.h"
@@ -14,12 +15,12 @@ void menu_analises(){
         printf("2. Voltar\n");
         printf("Escolha uma opcao: ");
 
-        if (scanf("%d", &opcao) != 1) {
-            limpar_buffer();
+        char buffer[256];
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
             opcao = 0;
             continue;
         }
-        limpar_buffer();
+        opcao = atoi(buffer);
 
         switch (opcao) {
             case 1:
@@ -39,8 +40,8 @@ void menu_analises(){
 void resumo_geral(){
     AnaliseDespesas analytics = calcular_analise_geral();
     printf("\n--- Resumo Geral ---\n");
-    printf("Total de Despesas do mes atual: %.2lf\n", analytics.total_despesas);
-    printf("Valor total das despesas acumulado: %.2lf\n", analytics.despesa_acumulada);
+    printf("Total de despesas do mes atual:    R$ %.2lf\n", analytics.total_despesas);
+    printf("Total acumulado (todos os meses):  R$ %.2lf\n", analytics.despesa_acumulada);
     printf("Crescimento de despesas em relacao ao mes passado: %.2lf\n", analytics.taxa_crescimento);
     printf("Mes com maior gasto: %02d/%04d\n", analytics.maior_gasto.mes, analytics.maior_gasto.ano);
     printf("Mes com menor gasto: %02d/%04d\n", analytics.menor_gasto.mes, analytics.menor_gasto.ano);

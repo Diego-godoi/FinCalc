@@ -13,6 +13,7 @@ void ui_listar_despesas();
 
 void menu_despesas(){
     int opcao;
+    char buffer[10];
 
     do{
         printf("\n------- MENU DESPESAS --------\n");
@@ -23,12 +24,11 @@ void menu_despesas(){
         printf("5. Voltar\n");
         printf("Escolha uma opcao: ");
 
-        if (scanf("%d", &opcao) != 1) {
-            limpar_buffer();
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
             opcao = 0;
             continue;
         }
-        limpar_buffer();
+        opcao = atoi(buffer);
 
         switch (opcao) {
             case 1:
@@ -58,48 +58,42 @@ void menu_despesas(){
 }
 
 void ui_registrar_despesa(){
-    Despesa despesa = {0};
-    Data data = {0};
-    char opcao_str[10];
+    Despesa despesa = {0}; // Define todos os valores como NULL
+    char buffer[256];
     
     printf("----- Registrar despesa ----\n");
     printf("Insira o nome da despesa: ");
     fgets(despesa.titulo, sizeof(despesa.titulo), stdin);
-    despesa.titulo[strcspn(despesa.titulo, "\n")] = 0;
+    despesa.titulo[strcspn(despesa.titulo, "\n")] = 0; // remove o \n
     
-    printf("Escolha uma categoria (0=ALIMENTACAO, 1=CASA, 2=TRANSPORTE, 3=OUTROS): ");
-    scanf("%d", (int*)&despesa.categoria);
+    printf("Escolha uma categoria:\n");
+    printf("0 - ALIMENTACAO\n1 - CASA\n2 - TRANSPORTE\n3 - OUTROS\nOpcao: ");
+    fgets(buffer, sizeof(buffer), stdin);
+    despesa.categoria = (Categoria)atoi(buffer); // converte char para int e depois para enum
     
     printf("Insira o valor: ");
-    scanf("%lf", &despesa.valor);
-    limpar_buffer();
+    fgets(buffer, sizeof(buffer), stdin);
+    despesa.valor = atof(buffer);
     
-    do{
-        printf("Insira a data (dd/mm/aaaa): ");
-        if (scanf("%d/%d/%d", &data.dia, &data.mes, &data.ano) != 3) {
-            limpar_buffer();
-            continue;
-        }
-        limpar_buffer();
-    }while(!validar_data(data));
-    despesa.data = data;
+    ler_data(&despesa.data);
     
     do{
         printf("É recorrente (s ou n): ");
-        fgets(opcao_str, sizeof(opcao_str), stdin);
-    }while(opcao_str[0] != 's' && opcao_str[0] != 'n');
+        fgets(buffer, sizeof(buffer), stdin);
+    }while(buffer[0] != 's' && buffer[0] != 'n');
     
-    if(opcao_str[0] == 's'){
+    if(buffer[0] == 's'){
         despesa.recorrente = 1;
-        printf("Insira a categoria de recorrencia (1=DIARIA, 2=SEMANAL, 3=MENSAL, 4=ANUAL): ");
-        scanf("%d", (int*)&despesa.frequencia);
-        limpar_buffer();
+        printf("Insira a categoria de recorrencia:\n");
+        printf("1 - DIARIA\n2 - SEMANAL\n3 - MENSAL\n4 - ANUAL\nOpcao: ");
+        fgets(buffer, sizeof(buffer), stdin);
+        despesa.frequencia = (Frequencia)atoi(buffer);
     } else {
         despesa.recorrente = 0;
         despesa.frequencia = NENHUMA;
     }
     
-    if(!adicionar_despesa(despesa)){
+    if(!adicionar_despesa(&despesa)){
         printf("Erro ao registrar despesa!\n");
         return;
     }
@@ -109,17 +103,17 @@ void ui_registrar_despesa(){
 
 void ui_remover_despesa(){
     int id;
-    char opcao_str[10];
+    char buffer[256];
     
     printf("----- Remover despesa ----\n");
     printf("Insira o ID da despesa: ");
-    scanf("%d", &id);
-    limpar_buffer();
+    fgets(buffer, sizeof(buffer), stdin);
+    id = atoi(buffer);
     
     printf("Tem certeza (s / n): ");
-    fgets(opcao_str, sizeof(opcao_str), stdin);
+    fgets(buffer, sizeof(buffer), stdin);
     
-    if(opcao_str[0] == 'n'){
+    if(buffer[0] == 'n'){
         printf("Despesa nao removida!\n");
         return;
     }
@@ -131,14 +125,13 @@ void ui_remover_despesa(){
 
 void ui_editar_despesa(){
     int id;
-    char opcao_str[10];
+    char buffer[256];
     Despesa despesa = {0};
-    Data data = {0};
     
     printf("----- Editar despesa ----\n");
     printf("Insira o ID da despesa: ");
-    scanf("%d", &id);
-    limpar_buffer();
+    fgets(buffer, sizeof(buffer), stdin);
+    id = atoi(buffer);
     
     if(!existe_por_id(id)){
         printf("Despesa nao encontrada!\n");
@@ -149,44 +142,36 @@ void ui_editar_despesa(){
     despesa.titulo[strcspn(despesa.titulo, "\n")] = 0;
     if (strcmp(despesa.titulo, "0") == 0) despesa.titulo[0] = '\0';
     
-    printf("Escolha uma categoria (-1 para pular): ");
-    int cat;
-    scanf("%d", &cat);
-    despesa.categoria = (enum Categoria)cat;
+    printf("Escolha uma categoria (-1 para pular):\n");
+    printf("0 - ALIMENTACAO\n1 - CASA\n2 - TRANSPORTE\n3 - OUTROS\nOpcao: ");
+    fgets(buffer, sizeof(buffer), stdin);
+    despesa.categoria = (Categoria)atoi(buffer);
     
     printf("Insira o valor (-1 para pular): ");
-    scanf("%lf", &despesa.valor);
-    limpar_buffer();
+    fgets(buffer, sizeof(buffer), stdin);
+    despesa.valor = atof(buffer);
     
-    do{
-        printf("Insira a data (dd/mm/aaaa) (0/0/0 para pular): ");
-        if (scanf("%d/%d/%d", &data.dia, &data.mes, &data.ano) != 3) {
-            limpar_buffer();
-            continue;
-        }
-        limpar_buffer();
-        if (data.dia == 0 && data.mes == 0 && data.ano == 0) break;
-    }while(!validar_data(data));
-    despesa.data = data;
+    ler_data_opcional(&despesa.data);
     
     do{
         printf("É recorrente (s, n ou p para pular): ");
-        fgets(opcao_str, sizeof(opcao_str), stdin);
-    }while(opcao_str[0] != 's' && opcao_str[0] != 'n' && opcao_str[0] != 'p');
+        fgets(buffer, sizeof(buffer), stdin);
+    }while(buffer[0] != 's' && buffer[0] != 'n' && buffer[0] != 'p');
     
-    if(opcao_str[0] == 's'){
+    if(buffer[0] == 's'){
         despesa.recorrente = 1;
-        printf("Insira a nova categoria de recorrencia: ");
-        scanf("%d", (int*)&despesa.frequencia);
-        limpar_buffer();
-    } else if (opcao_str[0] == 'n') {
+        printf("Insira a nova categoria de recorrencia:\n");
+        printf("1 - DIARIA\n2 - SEMANAL\n3 - MENSAL\n4 - ANUAL\nOpcao: ");
+        fgets(buffer, sizeof(buffer), stdin);
+        despesa.frequencia = (Frequencia)atoi(buffer);
+    } else if (buffer[0] == 'n') {
         despesa.recorrente = 0;
         despesa.frequencia = NENHUMA;
     } else {
         despesa.recorrente = -1;
     }
 
-    if(!editar_despesa(id, despesa)){
+    if(!editar_despesa(id, &despesa)){
         return;
     }
     printf("Despesa editada com sucesso!\n");
@@ -202,13 +187,13 @@ void ui_listar_despesas(){
         return;
     }
     
-    printf("%-5s | %-20s | %-10s | %-10s | %-10s | %-11s | %-10s\n", "ID", "Nome", "Categoria", "Valor", "Data", "Recorrencia", "Freq.");
-    printf("-----------------------------------------------------------------------------------------\n");
+    printf("%-5s | %-20s | %-12s | %-10s | %-10s | %-11s | %-12s\n", "ID", "Nome", "Categoria", "Valor", "Data", "Recorrencia", "Freq.");
+    printf("------------------------------------------------------------------------------------------------------\n");
     for (int i = 0; i < contagem; i++) {
-        printf("%-5d | %-20s | %-10d | %-10.2lf | %02d/%02d/%04d | %-11d | %-10d\n", 
-            despesas[i].id, despesas[i].titulo, despesas[i].categoria, despesas[i].valor, 
+        printf("%-5d | %-20s | %-12s | %-10.2lf | %02d/%02d/%04d | %-11d | %-12s\n", 
+            despesas[i].id, despesas[i].titulo, obter_nome_categoria(despesas[i].categoria), despesas[i].valor, 
             despesas[i].data.dia, despesas[i].data.mes, despesas[i].data.ano, 
-            despesas[i].recorrente, despesas[i].frequencia);
+            despesas[i].recorrente, obter_nome_frequencia(despesas[i].frequencia));
     }
     free(despesas);
 }

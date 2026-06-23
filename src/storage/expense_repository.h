@@ -3,10 +3,10 @@
 
 #include "../models/expense.h"
 
-int salvar_despesa(Despesa despesa);
+int salvar_despesa(const Despesa *despesa);
 Despesa* obter_despesa_por_id(int id);
 int remover_despesa_por_id(int id);
-int editar_despesa_por_id(int id, Despesa despesa);
+int editar_despesa_por_id(int id, const Despesa *despesa_atualizada);
 Despesa* listar_todas_despesas(int *contagem);
 int gerar_id();
 
