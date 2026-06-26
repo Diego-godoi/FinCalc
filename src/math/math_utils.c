@@ -32,13 +32,7 @@ int analise_sazonalidade(double* totais_mensais, int num_months) {
     return mes_sazonal;
 }
 
-// Média mensal - total acumulado dividido pelo número de meses com gastos
-double calcular_media_mensal(double total_acumulado, const double totais_mensais[12]) {
-    int meses_ativos = 0;
-    for (int i = 0; i < 12; i++) {
-        if (totais_mensais[i] > 0.0) {
-            meses_ativos++;
-        }
-    }
-    return meses_ativos > 0 ? total_acumulado / meses_ativos : 0.0;
+// Média mensal - total acumulado dividido pelo número de períodos (mês/ano) distintos
+double calcular_media_mensal(double total_acumulado, int num_periodos) {
+    return num_periodos > 0 ? total_acumulado / num_periodos : 0.0;
 }

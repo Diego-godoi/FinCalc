@@ -46,5 +46,7 @@ void resumo_geral(){
     printf("Mes com maior gasto: %02d/%04d\n", analytics.maior_gasto.mes, analytics.maior_gasto.ano);
     printf("Mes com menor gasto: %02d/%04d\n", analytics.menor_gasto.mes, analytics.menor_gasto.ano);
     printf("Media de gastos por mes: %.2lf\n", analytics.media_mensal);
+    printf("Mes sazonal (maior volume historico): %02d\n", analytics.mes_sazonal);
+    printf("Previsao para o proximo mes:          R$ %.2lf\n", analytics.previsao_tendencia);
     printf("\n-----------------------------\n");
 }

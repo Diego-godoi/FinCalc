@@ -13,7 +13,7 @@ double aproximacao_linear_local(double current_value, double derivative);
 // Análise de sazonalidade - retorna o mês com maior aumento ou maior despesa
 int analise_sazonalidade(double* totais_mensais, int num_months);
 
-// Média mensal - divide o total acumulado pelos meses com ao menos uma despesa
-double calcular_media_mensal(double total_acumulado, const double totais_mensais[12]);
+// Média mensal - divide o total acumulado pelo número de períodos (mês/ano) distintos
+double calcular_media_mensal(double total_acumulado, int num_periodos);
 
 #endif

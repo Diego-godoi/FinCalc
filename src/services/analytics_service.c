@@ -162,7 +162,7 @@ AnaliseDespesas calcular_analise_geral() {
     analytics.despesa_acumulada  = integral_discreta(todos_valores, qtd_valores); /* soma histórica total projetada */
     analytics.total_despesas     = total_mes_atual;                            /* soma apenas do mês atual */
     analytics.media_mensal       = calcular_media_mensal(analytics.despesa_acumulada,
-                                                         totais_mensais);
+                                                         num_periodos);
     analytics.taxa_crescimento   = derivada_discreta(total_mes_atual, total_mes_anterior);
     analytics.previsao_tendencia = aproximacao_linear_local(total_mes_atual,
                                                             analytics.taxa_crescimento);
